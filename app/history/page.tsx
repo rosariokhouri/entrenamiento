@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Calendar, Clock, Dumbbell, Search, Filter, Trash2, Eye } from 'lucide-react'
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Calendar, Clock, Dumbbell, Search, Filter, Trash2, Eye, BookOpen } from 'lucide-react'
 
 interface WorkoutData {
   id: string
@@ -24,12 +26,34 @@ interface WorkoutData {
   }>
 }
 
+interface Template {
+  id: string
+  name: string
+  description: string
+  exercises: Array<{
+    name: string
+    sets: number
+    reps: string
+    weight?: string
+    notes?: string
+  }>
+  createdAt: string
+  lastUsed?: string
+}
+
 export default function HistoryPage() {
   const [workouts, setWorkouts] = useState<WorkoutData[]>([])
   const [filteredWorkouts, setFilteredWorkouts] = useState<WorkoutData[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("date-desc")
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutData | null>(null)
+
+  const [isSaveTemplateDialogOpen, setIsSaveTemplateDialogOpen] = useState(false)
+  const [templateData, setTemplateData] = useState({
+    name: "",
+    description: ""
+  })
+  const [workoutToSave, setWorkoutToSave] = useState<WorkoutData | null>(null)
 
   useEffect(() => {
     const savedWorkouts = localStorage.getItem('gym-workouts')
@@ -83,6 +107,58 @@ export default function HistoryPage() {
     return workout.exercises.reduce((total, exercise) => 
       total + exercise.sets.reduce((setTotal, set) => setTotal + (set.weight * set.reps), 0), 0
     )
+  }
+
+  const openSaveTemplateDialog = (workout: WorkoutData) => {
+    setWorkoutToSave(workout)
+    setTemplateData({
+      name: `Rutina del ${new Date(workout.date).toLocaleDateString('es-AR')}`,
+      description: `Entrenamiento de ${workout.exercises.length} ejercicios`
+    })
+    setIsSaveTemplateDialogOpen(true)
+  }
+
+  const saveAsTemplate = () => {
+    if (!templateData.name.trim() || !workoutToSave) return
+
+    // Crear plantilla basada en el entrenamiento seleccionado
+    const template: Template = {
+      id: Date.now().toString(),
+      name: templateData.name.trim(),
+      description: templateData.description.trim(),
+      exercises: workoutToSave.exercises.map(exercise => {
+        // Calcular valores promedio de las series
+        const avgWeight = exercise.sets.length > 0 
+          ? Math.round(exercise.sets.reduce((sum, set) => sum + set.weight, 0) / exercise.sets.length)
+          : 0
+        const avgReps = exercise.sets.length > 0
+          ? Math.round(exercise.sets.reduce((sum, set) => sum + set.reps, 0) / exercise.sets.length)
+          : 0
+
+        return {
+          name: exercise.name,
+          sets: exercise.sets.length,
+          reps: avgReps > 0 ? avgReps.toString() : "8-12",
+          weight: avgWeight > 0 ? avgWeight.toString() : "",
+          notes: exercise.notes || ""
+        }
+      }),
+      createdAt: new Date().toISOString()
+    }
+
+    // Guardar plantilla
+    const savedTemplates = localStorage.getItem('gym-templates')
+    const templates = savedTemplates ? JSON.parse(savedTemplates) : []
+    templates.push(template)
+    localStorage.setItem('gym-templates', JSON.stringify(templates))
+
+    // Resetear formulario y cerrar diálogo
+    setTemplateData({ name: "", description: "" })
+    setWorkoutToSave(null)
+    setIsSaveTemplateDialogOpen(false)
+
+    // Mostrar confirmación
+    alert(`¡Plantilla "${template.name}" guardada exitosamente!`)
   }
 
   const getWorkoutStats = () => {
@@ -291,6 +367,15 @@ export default function HistoryPage() {
                           </div>
                         </DialogContent>
                       </Dialog>
+
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => openSaveTemplateDialog(workout)}
+                        title="Guardar como plantilla"
+                      >
+                        <BookOpen className="h-4 w-4" />
+                      </Button>
                       
                       <Button 
                         variant="outline" 
@@ -307,6 +392,74 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
+
+      {/* Dialog para Guardar como Plantilla */}
+      <Dialog open={isSaveTemplateDialogOpen} onOpenChange={setIsSaveTemplateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Guardar como Plantilla</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="template-name">Nombre de la Plantilla *</Label>
+              <Input
+                id="template-name"
+                value={templateData.name}
+                onChange={(e) => setTemplateData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Ej: Mi Rutina de Pecho"
+                className="mt-1"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="template-description">Descripción</Label>
+              <Textarea
+                id="template-description"
+                value={templateData.description}
+                onChange={(e) => setTemplateData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe esta rutina..."
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+
+            {workoutToSave && (
+              <div className="bg-muted p-3 rounded-lg">
+                <p className="text-sm font-medium mb-2">Vista previa de la plantilla:</p>
+                <div className="space-y-1">
+                  {workoutToSave.exercises.map((exercise, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span>{exercise.name}</span>
+                      <span className="text-muted-foreground">
+                        {exercise.sets.length} series
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end gap-2 mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsSaveTemplateDialogOpen(false)
+                setWorkoutToSave(null)
+                setTemplateData({ name: "", description: "" })
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={saveAsTemplate}
+              disabled={!templateData.name.trim()}
+            >
+              Guardar Plantilla
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
