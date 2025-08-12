@@ -30,7 +30,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     try {
-      const savedWorkouts = localStorage.getItem("workout-history")
+      const savedWorkouts = localStorage.getItem("gym-workouts")
       if (savedWorkouts) {
         const parsed = JSON.parse(savedWorkouts)
         setWorkouts(Array.isArray(parsed) ? parsed : [])

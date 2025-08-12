@@ -63,7 +63,7 @@ export default function DashboardPage() {
 
     // Load workout data and calculate stats
     const loadDashboardData = () => {
-      const workouts: WorkoutData[] = JSON.parse(localStorage.getItem("workouts") || "[]")
+      const workouts: WorkoutData[] = JSON.parse(localStorage.getItem("gym-workouts") || "[]")
 
       if (workouts.length === 0) {
         setStats({
