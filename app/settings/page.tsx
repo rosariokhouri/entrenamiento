@@ -1,16 +1,15 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { useTheme } from "next-themes"
-import { Download, Upload, Trash2, Moon, Sun, SettingsIcon } from 'lucide-react'
+import { Download, Upload, Trash2, Moon, SettingsIcon } from "lucide-react"
 
 interface AppSettings {
   defaultRestTime: number
@@ -21,48 +20,79 @@ interface AppSettings {
   notifications: boolean
 }
 
+interface DataStats {
+  workouts: number
+  templates: number
+  storageSize: number
+}
+
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [settings, setSettings] = useState<AppSettings>({
     defaultRestTime: 90,
     weightUnit: "kg",
     autoStartTimer: true,
     showRPE: true,
     showLastPerformance: true,
-    notifications: true
+    notifications: true,
+  })
+  const [stats, setStats] = useState<DataStats>({
+    workouts: 0,
+    templates: 0,
+    storageSize: 0,
   })
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('gym-settings')
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const savedSettings = localStorage.getItem("gym-settings")
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings))
     }
-  }, [])
+
+    const workouts = JSON.parse(localStorage.getItem("gym-workouts") || "[]")
+    const templates = JSON.parse(localStorage.getItem("gym-templates") || "[]")
+
+    setStats({
+      workouts: workouts.length,
+      templates: templates.length,
+      storageSize: Math.round((JSON.stringify(workouts).length + JSON.stringify(templates).length) / 1024),
+    })
+  }, [mounted])
 
   const updateSetting = (key: keyof AppSettings, value: any) => {
+    if (!mounted) return
+
     const newSettings = { ...settings, [key]: value }
     setSettings(newSettings)
-    localStorage.setItem('gym-settings', JSON.stringify(newSettings))
+    localStorage.setItem("gym-settings", JSON.stringify(newSettings))
   }
 
   const exportData = () => {
-    const workouts = localStorage.getItem('gym-workouts') || '[]'
-    const templates = localStorage.getItem('gym-templates') || '[]'
-    const appSettings = localStorage.getItem('gym-settings') || '{}'
+    if (!mounted) return
+
+    const workouts = localStorage.getItem("gym-workouts") || "[]"
+    const templates = localStorage.getItem("gym-templates") || "[]"
+    const appSettings = localStorage.getItem("gym-settings") || "{}"
 
     const exportData = {
       workouts: JSON.parse(workouts),
       templates: JSON.parse(templates),
       settings: JSON.parse(appSettings),
       exportDate: new Date().toISOString(),
-      version: "1.0"
+      version: "1.0",
     }
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
+    const a = document.createElement("a")
     a.href = url
-    a.download = `gym-tracker-backup-${new Date().toISOString().split('T')[0]}.json`
+    a.download = `gym-tracker-backup-${new Date().toISOString().split("T")[0]}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -70,6 +100,8 @@ export default function SettingsPage() {
   }
 
   const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!mounted) return
+
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -77,47 +109,49 @@ export default function SettingsPage() {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target?.result as string)
-        
+
         if (data.workouts) {
-          localStorage.setItem('gym-workouts', JSON.stringify(data.workouts))
+          localStorage.setItem("gym-workouts", JSON.stringify(data.workouts))
         }
         if (data.templates) {
-          localStorage.setItem('gym-templates', JSON.stringify(data.templates))
+          localStorage.setItem("gym-templates", JSON.stringify(data.templates))
         }
         if (data.settings) {
-          localStorage.setItem('gym-settings', JSON.stringify(data.settings))
+          localStorage.setItem("gym-settings", JSON.stringify(data.settings))
           setSettings(data.settings)
         }
-        
-        alert('¡Datos importados exitosamente! Por favor refrescá la página.')
+
+        alert("¡Datos importados exitosamente! Por favor refrescá la página.")
       } catch (error) {
-        alert('Error al importar datos. Por favor verificá el formato del archivo.')
+        alert("Error al importar datos. Por favor verificá el formato del archivo.")
       }
     }
     reader.readAsText(file)
   }
 
   const clearAllData = () => {
-    if (confirm('¿Estás seguro de que querés borrar todos los datos? Esta acción no se puede deshacer.')) {
-      localStorage.removeItem('gym-workouts')
-      localStorage.removeItem('gym-templates')
-      localStorage.removeItem('gym-settings')
-      alert('¡Todos los datos fueron borrados exitosamente! Por favor refrescá la página.')
+    if (!mounted) return
+
+    if (confirm("¿Estás seguro de que querés borrar todos los datos? Esta acción no se puede deshacer.")) {
+      localStorage.removeItem("gym-workouts")
+      localStorage.removeItem("gym-templates")
+      localStorage.removeItem("gym-settings")
+      alert("¡Todos los datos fueron borrados exitosamente! Por favor refrescá la página.")
     }
   }
 
-  const getDataStats = () => {
-    const workouts = JSON.parse(localStorage.getItem('gym-workouts') || '[]')
-    const templates = JSON.parse(localStorage.getItem('gym-templates') || '[]')
-    
-    return {
-      workouts: workouts.length,
-      templates: templates.length,
-      storageSize: Math.round((JSON.stringify(workouts).length + JSON.stringify(templates).length) / 1024)
-    }
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-background pb-20 md:pb-0">
+        <div className="border-b bg-card">
+          <div className="container mx-auto px-4 py-4">
+            <h1 className="text-2xl font-bold">Configuración</h1>
+            <p className="text-muted-foreground">Cargando configuración...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
-
-  const stats = getDataStats()
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -172,9 +206,9 @@ export default function SettingsPage() {
                 <Label>Tiempo de Descanso por Defecto</Label>
                 <p className="text-sm text-muted-foreground">Duración predeterminada del timer entre series</p>
               </div>
-              <Select 
-                value={settings.defaultRestTime.toString()} 
-                onValueChange={(value) => updateSetting('defaultRestTime', parseInt(value))}
+              <Select
+                value={settings.defaultRestTime.toString()}
+                onValueChange={(value) => updateSetting("defaultRestTime", Number.parseInt(value))}
               >
                 <SelectTrigger className="w-24">
                   <SelectValue />
@@ -195,9 +229,9 @@ export default function SettingsPage() {
                 <Label>Unidad de Peso</Label>
                 <p className="text-sm text-muted-foreground">Elegí tu unidad de peso preferida</p>
               </div>
-              <Select 
-                value={settings.weightUnit} 
-                onValueChange={(value: "kg" | "lbs") => updateSetting('weightUnit', value)}
+              <Select
+                value={settings.weightUnit}
+                onValueChange={(value: "kg" | "lbs") => updateSetting("weightUnit", value)}
               >
                 <SelectTrigger className="w-20">
                   <SelectValue />
@@ -216,7 +250,7 @@ export default function SettingsPage() {
               </div>
               <Switch
                 checked={settings.autoStartTimer}
-                onCheckedChange={(checked) => updateSetting('autoStartTimer', checked)}
+                onCheckedChange={(checked) => updateSetting("autoStartTimer", checked)}
               />
             </div>
 
@@ -225,20 +259,19 @@ export default function SettingsPage() {
                 <Label>Mostrar Campo RPE</Label>
                 <p className="text-sm text-muted-foreground">Mostrar entrada de Tasa de Esfuerzo Percibido</p>
               </div>
-              <Switch
-                checked={settings.showRPE}
-                onCheckedChange={(checked) => updateSetting('showRPE', checked)}
-              />
+              <Switch checked={settings.showRPE} onCheckedChange={(checked) => updateSetting("showRPE", checked)} />
             </div>
 
             <div className="flex items-center justify-between">
               <div>
                 <Label>Mostrar Último Rendimiento</Label>
-                <p className="text-sm text-muted-foreground">Mostrar datos del entrenamiento anterior como referencia</p>
+                <p className="text-sm text-muted-foreground">
+                  Mostrar datos del entrenamiento anterior como referencia
+                </p>
               </div>
               <Switch
                 checked={settings.showLastPerformance}
-                onCheckedChange={(checked) => updateSetting('showLastPerformance', checked)}
+                onCheckedChange={(checked) => updateSetting("showLastPerformance", checked)}
               />
             </div>
           </CardContent>
@@ -279,13 +312,7 @@ export default function SettingsPage() {
                     Exportar Datos
                   </Button>
                   <div>
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={importData}
-                      className="hidden"
-                      id="import-file"
-                    />
+                    <input type="file" accept=".json" onChange={importData} className="hidden" id="import-file" />
                     <Button asChild variant="outline">
                       <label htmlFor="import-file" className="cursor-pointer">
                         <Upload className="h-4 w-4 mr-2" />
