@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: "Gym Tracker - Tu Compañero de Entrenamiento",
   description:
     "Aplicación completa para seguimiento de entrenamientos, progreso y análisis de rendimiento en el gimnasio.",
-    generator: 'v0.dev'
+    generator: 'v0.app'
 }
 
 export default function RootLayout({

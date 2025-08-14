@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Search, Dumbbell, Info, Plus } from "lucide-react"
 import { exercises } from "@/lib/exercises-data"
 import { Label } from "@/components/ui/label"
@@ -25,6 +26,7 @@ export default function ExercisesPage() {
     instructions: "",
     primaryMuscles: "",
     secondaryMuscles: "",
+    isometric: false,
   })
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export default function ExercisesPage() {
         .split(",")
         .map((m) => m.trim())
         .filter((m) => m),
+      isometric: newExercise.isometric,
       isCustom: true,
     }
 
@@ -108,6 +111,7 @@ export default function ExercisesPage() {
       instructions: "",
       primaryMuscles: "",
       secondaryMuscles: "",
+      isometric: false,
     })
     setIsCreateDialogOpen(false)
   }
@@ -160,6 +164,9 @@ export default function ExercisesPage() {
                           <SelectItem value="Shoulders">Hombros</SelectItem>
                           <SelectItem value="Arms">Brazos</SelectItem>
                           <SelectItem value="Core">Core</SelectItem>
+                          <SelectItem value="Cardio">Cardio</SelectItem>
+                          <SelectItem value="Flexibilidad">Flexibilidad</SelectItem>
+                          <SelectItem value="Pliométricos">Pliométricos</SelectItem>
                           <SelectItem value="Personalizado">Personalizado</SelectItem>
                         </SelectContent>
                       </Select>
@@ -174,6 +181,20 @@ export default function ExercisesPage() {
                       onChange={(e) => setNewExercise({ ...newExercise, equipment: e.target.value })}
                       placeholder="Ej: Barra, Mancuernas, Peso Corporal"
                     />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="isometric"
+                      checked={newExercise.isometric}
+                      onCheckedChange={(checked) => setNewExercise({ ...newExercise, isometric: !!checked })}
+                    />
+                    <Label htmlFor="isometric" className="text-sm font-medium">
+                      ¿Ejercicio isométrico?
+                    </Label>
+                    <span className="text-xs text-muted-foreground">
+                      (Se medirá en tiempo en lugar de repeticiones)
+                    </span>
                   </div>
 
                   <div>
@@ -297,6 +318,11 @@ export default function ExercisesPage() {
                       <div className="flex gap-2 mt-2 flex-wrap">
                         <Badge variant="secondary">{exercise.category || "Sin categoría"}</Badge>
                         <Badge variant="outline">{exercise.equipment || "Sin equipamiento"}</Badge>
+                        {exercise.isometric && (
+                          <Badge variant="default" className="bg-orange-500">
+                            Isométrico
+                          </Badge>
+                        )}
                         {exercise.isCustom && (
                           <Badge variant="default" className="bg-green-500">
                             Personalizado
@@ -318,6 +344,11 @@ export default function ExercisesPage() {
                           <div className="flex gap-2 flex-wrap">
                             <Badge>{exercise.category || "Sin categoría"}</Badge>
                             <Badge variant="outline">{exercise.equipment || "Sin equipamiento"}</Badge>
+                            {exercise.isometric && (
+                              <Badge variant="default" className="bg-orange-500">
+                                Isométrico
+                              </Badge>
+                            )}
                             {exercise.isCustom && (
                               <Badge variant="default" className="bg-green-500">
                                 Personalizado

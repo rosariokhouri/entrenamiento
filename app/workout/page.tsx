@@ -74,12 +74,12 @@ export default function WorkoutPage() {
 
   const [newExercise, setNewExercise] = useState({
     name: "",
-    category: "strength",
-    equipment: "barbell",
+    category: "",
+    equipment: "",
     instructions: "",
     primaryMuscles: "",
     secondaryMuscles: "",
-    isometric: false,
+    isometric: false, // Added isometric property
   })
 
   const [templateData, setTemplateData] = useState({
@@ -207,23 +207,23 @@ export default function WorkoutPage() {
   }
 
   const createCustomExercise = () => {
-    if (!newExercise.name.trim()) return
+    if (!newExercise.name.trim() || !newExercise.category.trim()) return
 
     const exercise: Exercise = {
-      id: Date.now().toString(),
+      id: `custom-${Date.now()}`,
       name: newExercise.name.trim(),
       category: newExercise.category,
-      equipment: newExercise.equipment,
+      equipment: newExercise.equipment || "bodyweight",
       instructions: newExercise.instructions.trim(),
       primaryMuscles: newExercise.primaryMuscles
         .split(",")
         .map((m) => m.trim())
-        .filter((m) => m),
+        .filter(Boolean),
       secondaryMuscles: newExercise.secondaryMuscles
         .split(",")
         .map((m) => m.trim())
-        .filter((m) => m),
-      isometric: newExercise.isometric,
+        .filter(Boolean),
+      isometric: newExercise.isometric, // Include isometric property
     }
 
     try {
@@ -233,13 +233,17 @@ export default function WorkoutPage() {
       localStorage.setItem("gym-custom-exercises", JSON.stringify(updatedCustomExercises))
 
       // Add to current workout
-      addExerciseToWorkout(exercise)
+      const exerciseToAdd = {
+        ...exercise,
+        sets: [],
+      }
+      setCurrentExercises((prev) => [...(prev || []), exerciseToAdd])
 
       // Reset form
       setNewExercise({
         name: "",
-        category: "strength",
-        equipment: "barbell",
+        category: "",
+        equipment: "",
         instructions: "",
         primaryMuscles: "",
         secondaryMuscles: "",
@@ -611,48 +615,47 @@ export default function WorkoutPage() {
                         <div key={setIndex} className="flex items-center gap-2 p-2 border rounded">
                           <span className="text-sm font-medium w-12">Serie {setIndex + 1}</span>
 
-                          <div className="flex items-center gap-1">
-                            <Input
-                              type="number"
-                              placeholder="Peso"
-                              value={set.weight || ""}
-                              onChange={(e) =>
-                                updateSet(exercise.id, setIndex, "weight", Number.parseFloat(e.target.value) || 0)
-                              }
-                              className="w-20 h-8"
-                              disabled={set.completed}
-                            />
-                            <span className="text-xs text-muted-foreground">kg</span>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <Input
-                              type="number"
-                              placeholder="Reps"
-                              value={set.reps || ""}
-                              onChange={(e) =>
-                                updateSet(exercise.id, setIndex, "reps", Number.parseInt(e.target.value) || 0)
-                              }
-                              className="w-16 h-8"
-                              disabled={set.completed}
-                            />
-                            <span className="text-xs text-muted-foreground">reps</span>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <Input
-                              type="number"
-                              placeholder="RPE"
-                              value={set.rpe || ""}
-                              onChange={(e) =>
-                                updateSet(exercise.id, setIndex, "rpe", Number.parseFloat(e.target.value) || undefined)
-                              }
-                              className="w-16 h-8"
-                              min="1"
-                              max="10"
-                              step="0.5"
-                              disabled={set.completed}
-                            />
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-xs">Peso (kg)</Label>
+                              <Input
+                                type="number"
+                                value={set.weight || ""}
+                                onChange={(e) =>
+                                  updateSet(exercise.id, setIndex, "weight", Number.parseFloat(e.target.value) || 0)
+                                }
+                                className="h-8"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">{exercise.isometric ? "Tiempo (seg)" : "Reps"}</Label>
+                              <Input
+                                type="number"
+                                value={exercise.isometric ? set.duration || "" : set.reps || ""}
+                                onChange={(e) => {
+                                  const value = Number.parseInt(e.target.value) || 0
+                                  if (exercise.isometric) {
+                                    updateSet(exercise.id, setIndex, "duration", value)
+                                  } else {
+                                    updateSet(exercise.id, setIndex, "reps", value)
+                                  }
+                                }}
+                                className="h-8"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">RPE</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={set.rpe || ""}
+                                onChange={(e) =>
+                                  updateSet(exercise.id, setIndex, "rpe", Number.parseInt(e.target.value) || undefined)
+                                }
+                                className="h-8"
+                              />
+                            </div>
                           </div>
 
                           {set.completed ? (
@@ -827,13 +830,19 @@ export default function WorkoutPage() {
                             onValueChange={(value) => setNewExercise({ ...newExercise, category: value })}
                           >
                             <SelectTrigger>
-                              <SelectValue />
+                              <SelectValue placeholder="Seleccionar categoría" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="strength">Fuerza</SelectItem>
-                              <SelectItem value="cardio">Cardio</SelectItem>
-                              <SelectItem value="flexibility">Flexibilidad</SelectItem>
-                              <SelectItem value="plyometrics">Pliométricos</SelectItem>
+                              <SelectItem value="Chest">Pecho</SelectItem>
+                              <SelectItem value="Back">Espalda</SelectItem>
+                              <SelectItem value="Legs">Piernas</SelectItem>
+                              <SelectItem value="Shoulders">Hombros</SelectItem>
+                              <SelectItem value="Arms">Brazos</SelectItem>
+                              <SelectItem value="Core">Core</SelectItem>
+                              <SelectItem value="Cardio">Cardio</SelectItem>
+                              <SelectItem value="Flexibilidad">Flexibilidad</SelectItem>
+                              <SelectItem value="Pliométricos">Pliométricos</SelectItem>
+                              <SelectItem value="Personalizado">Personalizado</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -842,22 +851,12 @@ export default function WorkoutPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="exercise-equipment">Equipamiento</Label>
-                          <Select
+                          <Input
+                            id="exercise-equipment"
                             value={newExercise.equipment}
-                            onValueChange={(value) => setNewExercise({ ...newExercise, equipment: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="barbell">Barra</SelectItem>
-                              <SelectItem value="dumbbell">Mancuernas</SelectItem>
-                              <SelectItem value="machine">Máquina</SelectItem>
-                              <SelectItem value="bodyweight">Peso Corporal</SelectItem>
-                              <SelectItem value="cable">Polea</SelectItem>
-                              <SelectItem value="kettlebell">Kettlebell</SelectItem>
-                            </SelectContent>
-                          </Select>
+                            onChange={(e) => setNewExercise({ ...newExercise, equipment: e.target.value })}
+                            placeholder="Ej: Barra, Mancuernas, Peso Corporal"
+                          />
                         </div>
 
                         <div className="space-y-2">
@@ -919,7 +918,10 @@ export default function WorkoutPage() {
                         <Button variant="outline" onClick={() => setIsCreateExerciseDialogOpen(false)}>
                           Cancelar
                         </Button>
-                        <Button onClick={createCustomExercise} disabled={!newExercise.name.trim()}>
+                        <Button
+                          onClick={createCustomExercise}
+                          disabled={!newExercise.name.trim() || !newExercise.category.trim()}
+                        >
                           Crear Ejercicio
                         </Button>
                       </div>
