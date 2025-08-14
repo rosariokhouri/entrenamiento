@@ -8,8 +8,21 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Calendar, Edit, Trash2, Play, Copy } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Calendar, Edit, Trash2, Play, Copy, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { exercises } from "@/lib/exercises-data"
+
+interface Exercise {
+  id?: string
+  name: string
+  category: string
+  equipment: string
+  instructions: string
+  primaryMuscles: string[]
+  secondaryMuscles: string[]
+  isometric?: boolean
+}
 
 interface Template {
   id: string
@@ -32,6 +45,11 @@ export default function TemplatesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null)
+  const [isExerciseSearchOpen, setIsExerciseSearchOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [customExercises, setCustomExercises] = useState<Exercise[]>([])
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState<number | null>(null)
   const [newTemplate, setNewTemplate] = useState({
     name: "",
     description: "",
@@ -87,7 +105,26 @@ export default function TemplatesPage() {
       setTemplates(defaultTemplates)
       localStorage.setItem("gym-templates", JSON.stringify(defaultTemplates))
     }
+
+    try {
+      const savedCustomExercises = localStorage.getItem("gym-custom-exercises")
+      if (savedCustomExercises) {
+        setCustomExercises(JSON.parse(savedCustomExercises))
+      }
+    } catch (error) {
+      console.error("Error loading custom exercises:", error)
+    }
   }, [])
+
+  const allExercises = [...(exercises || []), ...(customExercises || [])]
+
+  const filteredExercises = allExercises.filter((exercise) => {
+    const matchesSearch = exercise.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = selectedCategory === "all" || exercise.category === selectedCategory
+    return matchesSearch && matchesCategory
+  })
+
+  const categories = Array.from(new Set(allExercises.map((ex) => ex.category).filter(Boolean)))
 
   const saveTemplates = (updatedTemplates: Template[]) => {
     setTemplates(updatedTemplates)
@@ -180,6 +217,21 @@ export default function TemplatesPage() {
     }))
   }
 
+  const openExerciseSearch = (index: number) => {
+    setCurrentExerciseIndex(index)
+    setIsExerciseSearchOpen(true)
+    setSearchTerm("")
+    setSelectedCategory("all")
+  }
+
+  const selectExerciseFromSearch = (exercise: Exercise) => {
+    if (currentExerciseIndex !== null) {
+      updateExercise(currentExerciseIndex, "name", exercise.name)
+      setIsExerciseSearchOpen(false)
+      setCurrentExerciseIndex(null)
+    }
+  }
+
   const updateExercise = (index: number, field: string, value: any) => {
     setNewTemplate((prev) => ({
       ...prev,
@@ -247,13 +299,21 @@ export default function TemplatesPage() {
                     <div className="space-y-3">
                       {newTemplate.exercises.map((exercise, index) => (
                         <div key={index} className="border rounded-lg p-3 space-y-2">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
                             <Input
                               placeholder="Nombre del ejercicio"
                               value={exercise.name}
                               onChange={(e) => updateExercise(index, "name", e.target.value)}
-                              className="flex-1 mr-2"
+                              className="flex-1"
                             />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openExerciseSearch(index)}
+                              title="Buscar ejercicio"
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -406,55 +466,78 @@ export default function TemplatesPage() {
         )}
       </div>
 
-      <Dialog open={!!previewTemplate} onOpenChange={() => setPreviewTemplate(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <Dialog open={isExerciseSearchOpen} onOpenChange={setIsExerciseSearchOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Vista Previa: {previewTemplate?.name}</DialogTitle>
+            <DialogTitle>Buscar Ejercicio</DialogTitle>
           </DialogHeader>
-          {previewTemplate && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-muted-foreground">{previewTemplate.description}</p>
-                <div className="flex gap-2 mt-2">
-                  <Badge variant="secondary">{previewTemplate.exercises.length} ejercicios</Badge>
-                  <Badge variant="outline">
-                    Creado: {new Date(previewTemplate.createdAt).toLocaleDateString("es-AR")}
-                  </Badge>
-                </div>
-              </div>
 
-              <div className="space-y-3">
-                <h4 className="font-medium">Ejercicios:</h4>
-                {previewTemplate.exercises.map((exercise, idx) => (
-                  <div key={idx} className="border rounded-lg p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <h5 className="font-medium">{exercise.name}</h5>
-                      <Badge variant="outline">
-                        {exercise.sets} × {exercise.reps}
-                      </Badge>
-                    </div>
-                    {exercise.weight && <p className="text-sm text-muted-foreground">Peso: {exercise.weight} kg</p>}
-                    {exercise.notes && <p className="text-sm text-muted-foreground">Notas: {exercise.notes}</p>}
-                  </div>
+          <div className="space-y-4 flex-1 overflow-hidden">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar ejercicios..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid md:grid-cols-2 gap-3">
+                {filteredExercises.map((exercise) => (
+                  <Card
+                    key={exercise.id || exercise.name}
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => selectExerciseFromSearch(exercise)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-medium">{exercise.name}</h3>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex gap-1 mb-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {exercise.category}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {exercise.equipment}
+                        </Badge>
+                        {exercise.isometric && (
+                          <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                            Isométrico
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{exercise.instructions}</p>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setPreviewTemplate(null)}>
-                  Cerrar
-                </Button>
-                <Button
-                  onClick={() => {
-                    setPreviewTemplate(null)
-                    startWorkoutFromTemplate(previewTemplate)
-                  }}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Iniciar Entrenamiento
-                </Button>
-              </div>
+              {filteredExercises.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No se encontraron ejercicios que coincidan con tu búsqueda
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
